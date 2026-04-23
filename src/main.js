@@ -494,7 +494,7 @@ function createRainSystem() {
 }
 
 function updateRain(dt) {
-  if (!rainSystem || !rainSystem.visible) return
+  if (!rainSystem || !rainSystem.visible || !player) return
   
   const positions = rainSystem.geometry.attributes.position.array
   const velocities = rainSystem.userData.velocities
@@ -1429,7 +1429,7 @@ function resolveDecorationCollisions() {
 // PLAYER UPDATE WITH PHYSICS
 // ============================================================================
 function updatePlayer(dt) {
-  if (!started) return
+  if (!started || !player) return
   
   const forward = new THREE.Vector3(-Math.sin(camAngle), 0, -Math.cos(camAngle))
   const right = new THREE.Vector3(-forward.z, 0, forward.x)
@@ -1669,6 +1669,7 @@ function animateWalk(dt, time) {
 // GAME OBJECT UPDATES
 // ============================================================================
 function updateGems(dt, time) {
+  if (!player) return
   const cfg = LEVELS[currentLevel]
   gems.forEach(gem => {
     if (gem.userData.collected) return
@@ -1718,6 +1719,7 @@ function updateGems(dt, time) {
 }
 
 function updateEnemies(dt, time) {
+  if (!player) return
   enemies.forEach(enemy => {
     // Update enemy height to follow terrain
     const terrainH = getTerrainHeight(enemy.position.x, enemy.position.z)
@@ -1790,6 +1792,7 @@ function updateEnemies(dt, time) {
 }
 
 function updatePowerUps(dt, time) {
+  if (!player) return
   powerUps.forEach(pu => {
     if (pu.userData.collected) return
     pu.rotation.y += dt * 3
@@ -1825,6 +1828,7 @@ function updateTimer(dt) {
 }
 
 function updateCamera() {
+  if (!player) return
   const cx = player.position.x + Math.sin(camAngle) * Math.cos(camPitch) * CAM_DIST
   const cy = player.position.y + 1.5 + Math.sin(camPitch) * CAM_DIST
   const cz = player.position.z + Math.cos(camAngle) * Math.cos(camPitch) * CAM_DIST
