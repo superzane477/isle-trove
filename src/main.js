@@ -861,7 +861,6 @@ function createGems(count, levelIdx) {
   // Try new naming first, then old naming
   tryLoadGemModel('/models/gem_blue.glb', false)
   tryLoadGemModel('/models/gem_gold.glb', true)
-  tryLoadGemModel('/models/gem.glb', false) // Fallback
 }
 
 function createDecorations(levelIdx) {
