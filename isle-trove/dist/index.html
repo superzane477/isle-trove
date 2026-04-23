@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Island Treasure</title>
+  <script type="module" crossorigin src="./assets/index-BDNx9JIU.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CvaNFRZo.css">
+</head>
+<body>
+  <div id="ui">
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <div id="hud-left">
+          <span id="health"></span>
+          <span id="score-display">Score: 0</span>
+        </div>
+        <div id="hud-center">
+          <span id="level-label"></span>
+          <span id="gem-count"></span>
+        </div>
+        <div id="hud-right">
+          <span id="timer"></span>
+        </div>
+      </div>
+      <div id="combo-display" class="hidden"></div>
+      <div id="float-score-container"></div>
+    </div>
+
+    <div id="level-title" class="hidden">
+      <h1 id="level-title-text"></h1>
+    </div>
+
+    <div id="level-complete" class="hidden">
+      <h1>Level Complete!</h1>
+      <div id="score-breakdown"></div>
+      <p id="level-total-score"></p>
+      <button id="next-level-btn">Next Level</button>
+    </div>
+
+    <div id="game-over" class="hidden">
+      <h1>Game Over</h1>
+      <p id="game-over-score"></p>
+      <button id="game-over-restart">Try Again</button>
+    </div>
+
+    <div id="victory" class="hidden">
+      <h1>Victory!</h1>
+      <p>You conquered all islands!</p>
+      <p id="victory-score"></p>
+      <button id="victory-restart">Play Again</button>
+    </div>
+
+    <div id="start-screen">
+      <h1>Island Treasure</h1>
+      <p>WASD to move | Mouse drag to rotate camera<br/>Collect gems, avoid enemies!</p>
+      <button id="start-btn">Start</button>
+    </div>
+  </div>
+</body>
+</html>
