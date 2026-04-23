@@ -301,13 +301,19 @@ function init() {
   // Create island terrain
   createIsland()
   
+  // Disable start button initially before preloading
+  if (startBtn) {
+    startBtn.disabled = true
+    startBtn.textContent = 'Loading Character...'
+  }
+  
   // Preload player model first, then create player
-  preloadPlayerModel().then(() => {
+  preloadPlayerModel().then((success) => {
     createPlayer()
-    // Enable start button after player model is loaded
+    // Enable start button after player model is loaded (or failed)
     if (startBtn) {
       startBtn.disabled = false
-      startBtn.textContent = 'Start Game'
+      startBtn.textContent = success ? 'Start Game' : 'Start Game (Fallback)' 
     }
   })
   
@@ -334,12 +340,6 @@ function init() {
   renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive: false })
   renderer.domElement.addEventListener('contextmenu', e => e.preventDefault())
   
-  // Disable start button initially
-  if (startBtn) {
-    startBtn.disabled = true
-    startBtn.textContent = 'Loading...'
-  }
-  
   // UI event listeners
   startBtn.addEventListener('click', () => {
     startScreen.classList.add('hidden')
@@ -361,7 +361,7 @@ function init() {
 function preloadPlayerModel() {
   return new Promise((resolve) => {
     if (isPlayerModelLoaded && preloadedModels.player) {
-      resolve()
+      resolve(true)
       return
     }
     
@@ -370,7 +370,7 @@ function preloadPlayerModel() {
       const checkInterval = setInterval(() => {
         if (isPlayerModelLoaded) {
           clearInterval(checkInterval)
-          resolve()
+          resolve(true)
         }
       }, 100)
       return
@@ -384,16 +384,16 @@ function preloadPlayerModel() {
         preloadedModels.player = gltf
         isPlayerModelLoaded = true
         isPlayerLoading = false
-        resolve()
+        resolve(true)
       }, undefined, err => {
         console.warn('Failed to preload player model from', path, err)
         if (path === '/models/adventurer.glb') {
           // Try fallback
           tryLoadModel('/models/character.glb')
         } else {
-          // Both failed, resolve anyway (will use fallback geometry)
+          // Both failed, resolve with false (will use fallback geometry)
           isPlayerLoading = false
-          resolve()
+          resolve(false)
         }
       })
     }
