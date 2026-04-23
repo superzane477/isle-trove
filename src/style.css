@@ -162,6 +162,54 @@ canvas { display: block; }
 #victory h1 { font-size: 48px; color: #ffd700; margin-bottom: 12px; }
 #start-screen h1 { font-size: 42px; color: #7df9ff; margin-bottom: 12px; }
 
+/* Loading container */
+#loading-container {
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(125, 249, 255, 0.3);
+}
+
+#loading-text {
+  color: #7df9ff;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+#loading-progress {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+#loading-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #7df9ff, #ffd700);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+#loading-timer {
+  color: #ffd700;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+#start-btn:disabled {
+  background: #666;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+#start-btn:not(:disabled) {
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
 #score-breakdown {
   text-align: left;
   margin: 16px auto;

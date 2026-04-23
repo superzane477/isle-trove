@@ -121,6 +121,10 @@ const gameOverRestart = document.getElementById('game-over-restart')
 const victoryScreen = document.getElementById('victory')
 const victoryScore = document.getElementById('victory-score')
 const victoryRestart = document.getElementById('victory-restart')
+const loadingContainer = document.getElementById('loading-container')
+const loadingText = document.getElementById('loading-text')
+const loadingBar = document.getElementById('loading-bar')
+const loadingTimer = document.getElementById('loading-timer')
 
 const keys = {}
 
@@ -331,7 +335,88 @@ function init() {
   gameOverRestart.addEventListener('click', fullRestart)
   victoryRestart.addEventListener('click', fullRestart)
   
+  // Start animation loop
   animate()
+  
+  // Start preloading assets and 5s countdown
+  startPreloading()
+}
+
+// ============================================================================
+// PRELOADING SYSTEM
+// ============================================================================
+let preloadedModels = {}
+let preloadProgress = 0
+const TOTAL_MODELS_TO_PRELOAD = 7
+
+function startPreloading() {
+  // Start the countdown timer
+  let remainingTime = 5.0
+  loadingTimer.textContent = remainingTime.toFixed(1) + 's'
+
+  const countdownInterval = setInterval(() => {
+    remainingTime -= 0.1
+    loadingTimer.textContent = Math.max(0, remainingTime).toFixed(1) + 's'
+
+    if (remainingTime <= 0) {
+      clearInterval(countdownInterval)
+      finishPreloading()
+    }
+  }, 100)
+
+  // Preload all models
+  preloadAllModels()
+}
+
+function preloadAllModels() {
+  const modelsToLoad = [
+    { name: 'player', path: '/models/adventurer.glb' },
+    { name: 'gem_blue', path: '/models/gem_blue.glb' },
+    { name: 'gem_gold', path: '/models/gem_gold.glb' },
+    { name: 'tree', path: '/models/tree.glb' },
+    { name: 'rock', path: '/models/rock_mossy.glb' },
+    { name: 'crab', path: '/models/crab.glb' },
+    { name: 'shadow', path: '/models/shadow_wraith.glb' }
+  ]
+
+  let loadedCount = 0
+
+  modelsToLoad.forEach(model => {
+    gltfLoader.load(
+      model.path,
+      (gltf) => {
+        preloadedModels[model.name] = gltf
+        loadedCount++
+        updateLoadingProgress(loadedCount, TOTAL_MODELS_TO_PRELOAD)
+        console.log(`Preloaded: ${model.path}`)
+      },
+      undefined,
+      (error) => {
+        // Model failed to load, but we still count it to not block the game
+        loadedCount++
+        updateLoadingProgress(loadedCount, TOTAL_MODELS_TO_PRELOAD)
+        console.warn(`Failed to preload ${model.path}:`, error)
+      }
+    )
+  })
+}
+
+function updateLoadingProgress(loaded, total) {
+  const progress = (loaded / total) * 100
+  loadingBar.style.width = progress + '%'
+
+  if (loaded >= total) {
+    loadingText.textContent = 'Assets loaded!'
+  } else {
+    loadingText.textContent = `Loading assets... (${loaded}/${total})`
+  }
+}
+
+function finishPreloading() {
+  loadingText.textContent = 'Ready!'
+  loadingBar.style.width = '100%'
+  startBtn.disabled = false
+  startBtn.textContent = 'Start Game'
 }
 
 // ============================================================================
@@ -625,141 +710,114 @@ function createPlayer() {
   player = createFallbackPlayer()
   scene.add(player)
 
+  // Check if player model was preloaded
+  if (preloadedModels.player) {
+    console.log('Using preloaded player model')
+    setupPlayerModel(preloadedModels.player)
+    return
+  }
+
   // Try to load adventurer model first, fallback to character.glb for backwards compatibility
   const playerModelPath = '/models/adventurer.glb'
   
   gltfLoader.load(playerModelPath, gltf => {
     console.log('GLTF loaded successfully:', gltf)
-    const model = gltf.scene
-    
-    // Check if model has content
-    let meshCount = 0
-    model.traverse(c => { if (c.isMesh) meshCount++ })
-    console.log('Model mesh count:', meshCount)
-    
-    const box = new THREE.Box3().setFromObject(model)
-    const size = box.getSize(new THREE.Vector3())
-    console.log('Model size:', size)
-    
-    if (size.y === 0) {
-      console.error('Model has zero height, using fallback')
-      return
-    }
-    
-    const s = 1.5 / size.y
-    console.log('Model scale:', s)
-    model.scale.set(s, s, s)
-    
-    box.setFromObject(model)
-    model.position.y = -box.min.y
-
-    model.traverse(c => {
-      if (c.isMesh) {
-        c.castShadow = true
-        // Don't modify materials - let GLTFLoader handle textures automatically
-        // The texture loading error might be a CORS or blob issue
-      }
-    })
-
-    if (gltf.animations && gltf.animations.length > 0) {
-      const mx = new THREE.AnimationMixer(model)
-      const walkClip = gltf.animations.find(a => /walk|run/i.test(a.name)) || gltf.animations[0]
-      const idleClip = gltf.animations.find(a => /idle|stand/i.test(a.name))
-      const wa = mx.clipAction(walkClip)
-      const ia = idleClip ? mx.clipAction(idleClip) : null
-      wa.play()
-      wa.setEffectiveWeight(0)
-      if (ia) { ia.play(); ia.setEffectiveWeight(1) }
-      model.userData.anim = { type: 'gltf-mixer', mixer: mx, walkAction: wa, idleAction: ia }
-    } else {
-      const bones = {}
-      model.traverse(c => {
-        if (c.isBone) {
-          const n = c.name.toLowerCase()
-          if (/hip|pelvis/.test(n)) bones.hips = c
-          if (/leftupleg|left_up_leg|lefthip/.test(n)) bones.leftHip = c
-          if (/rightupleg|right_up_leg|righthip/.test(n)) bones.rightHip = c
-          if (/leftarm|left_arm|leftshoulder/.test(n)) bones.leftShoulder = c
-          if (/rightarm|right_arm|rightshoulder/.test(n)) bones.rightShoulder = c
-        }
-      })
-      if (bones.hips && bones.leftHip && bones.rightHip) {
-        model.userData.anim = { type: 'gltf-procedural', ...bones }
-      } else {
-        model.userData.anim = { type: 'gltf-basic' }
-      }
-    }
-
-    const pos = player.position.clone()
-    const rot = player.rotation.y
-    scene.remove(player)
-    player = model
-    player.position.x = pos.x
-    player.position.z = pos.z
-    player.rotation.y = rot
-    
-    // Position player at terrain height
-    // model.position.y was already set to -box.min.y, so model's bottom is at local y=0
-    const terrainH = getTerrainHeight(pos.x, pos.z)
-    player.userData.groundY = -model.position.y  // Store the offset
-    player.position.y = terrainH
-    
-    console.log('Player positioned at:', player.position)
-    console.log('Player groundY:', player.userData.groundY)
-    
-    scene.add(player)
-    console.log('Player model loaded successfully: adventurer.glb')
+    setupPlayerModel(gltf)
   }, undefined, err => {
     console.warn('adventurer.glb failed to load, trying character.glb...', err)
     // Fallback to old filename
     gltfLoader.load('/models/character.glb', gltf => {
-      const model = gltf.scene
-      const box = new THREE.Box3().setFromObject(model)
-      const size = box.getSize(new THREE.Vector3())
-      const s = 1.5 / size.y
-      model.scale.set(s, s, s)
-      box.setFromObject(model)
-      model.position.y = -box.min.y
-
-      model.traverse(c => {
-        if (c.isMesh) {
-          c.castShadow = true
-          // Ensure materials display correctly
-          if (c.material) {
-            if (c.material.map) {
-              c.material.map.colorSpace = THREE.SRGBColorSpace
-            }
-            c.material.needsUpdate = true
-          }
-        }
-      })
-
-      if (gltf.animations && gltf.animations.length > 0) {
-        const mx = new THREE.AnimationMixer(model)
-        const walkClip = gltf.animations.find(a => /walk|run/i.test(a.name)) || gltf.animations[0]
-        const idleClip = gltf.animations.find(a => /idle|stand/i.test(a.name))
-        const wa = mx.clipAction(walkClip)
-        const ia = idleClip ? mx.clipAction(idleClip) : null
-        wa.play()
-        wa.setEffectiveWeight(0)
-        if (ia) { ia.play(); ia.setEffectiveWeight(1) }
-        model.userData.anim = { type: 'gltf-mixer', mixer: mx, walkAction: wa, idleAction: ia }
-      }
-
-      const pos = player.position.clone()
-      const rot = player.rotation.y
-      scene.remove(player)
-      player = model
-      player.position.x = pos.x
-      player.position.z = pos.z
-      player.rotation.y = rot
-      player.userData.groundY = model.position.y
-      scene.add(player)
-      console.log('Player model loaded successfully: character.glb')
+      setupPlayerModel(gltf, true)
     }, undefined, err2 => {
       console.error('All player model loading attempts failed:', err2)
     })
   })
+}
+
+function setupPlayerModel(gltf, isFallback = false) {
+  const model = gltf.scene
+  
+  // Check if model has content
+  let meshCount = 0
+  model.traverse(c => { if (c.isMesh) meshCount++ })
+  console.log('Model mesh count:', meshCount)
+  
+  const box = new THREE.Box3().setFromObject(model)
+  const size = box.getSize(new THREE.Vector3())
+  console.log('Model size:', size)
+  
+  if (size.y === 0) {
+    console.error('Model has zero height, using fallback')
+    return
+  }
+  
+  const s = 1.5 / size.y
+  console.log('Model scale:', s)
+  model.scale.set(s, s, s)
+  
+  box.setFromObject(model)
+  model.position.y = -box.min.y
+
+  model.traverse(c => {
+    if (c.isMesh) {
+      c.castShadow = true
+      if (isFallback && c.material) {
+        // Ensure materials display correctly for fallback
+        if (c.material.map) {
+          c.material.map.colorSpace = THREE.SRGBColorSpace
+        }
+        c.material.needsUpdate = true
+      }
+    }
+  })
+
+  if (gltf.animations && gltf.animations.length > 0) {
+    const mx = new THREE.AnimationMixer(model)
+    const walkClip = gltf.animations.find(a => /walk|run/i.test(a.name)) || gltf.animations[0]
+    const idleClip = gltf.animations.find(a => /idle|stand/i.test(a.name))
+    const wa = mx.clipAction(walkClip)
+    const ia = idleClip ? mx.clipAction(idleClip) : null
+    wa.play()
+    wa.setEffectiveWeight(0)
+    if (ia) { ia.play(); ia.setEffectiveWeight(1) }
+    model.userData.anim = { type: 'gltf-mixer', mixer: mx, walkAction: wa, idleAction: ia }
+  } else {
+    const bones = {}
+    model.traverse(c => {
+      if (c.isBone) {
+        const n = c.name.toLowerCase()
+        if (/hip|pelvis/.test(n)) bones.hips = c
+        if (/leftupleg|left_up_leg|lefthip/.test(n)) bones.leftHip = c
+        if (/rightupleg|right_up_leg|righthip/.test(n)) bones.rightHip = c
+        if (/leftarm|left_arm|leftshoulder/.test(n)) bones.leftShoulder = c
+        if (/rightarm|right_arm|rightshoulder/.test(n)) bones.rightShoulder = c
+      }
+    })
+    if (bones.hips && bones.leftHip && bones.rightHip) {
+      model.userData.anim = { type: 'gltf-procedural', ...bones }
+    } else {
+      model.userData.anim = { type: 'gltf-basic' }
+    }
+  }
+
+  const pos = player.position.clone()
+  const rot = player.rotation.y
+  scene.remove(player)
+  player = model
+  player.position.x = pos.x
+  player.position.z = pos.z
+  player.rotation.y = rot
+  
+  // Position player at terrain height
+  const terrainH = getTerrainHeight(pos.x, pos.z)
+  player.userData.groundY = -model.position.y
+  player.position.y = terrainH
+  
+  console.log('Player positioned at:', player.position)
+  console.log('Player groundY:', player.userData.groundY)
+  
+  scene.add(player)
+  console.log('Player model loaded successfully:', isFallback ? 'character.glb' : 'adventurer.glb')
 }
 
 // ============================================================================

@@ -53,7 +53,14 @@
     <div id="start-screen">
       <h1>Island Trove</h1>
       <p>WASD to move | Mouse drag to rotate camera<br/>Collect gems, avoid enemies!<br/>Avoid water - it damages you!</p>
-      <button id="start-btn">Start</button>
+      <div id="loading-container">
+        <div id="loading-text">Loading assets...</div>
+        <div id="loading-progress">
+          <div id="loading-bar"></div>
+        </div>
+        <div id="loading-timer">5.0s</div>
+      </div>
+      <button id="start-btn" disabled>Start</button>
     </div>
   </div>
   <div id="water-damage-overlay"></div>
