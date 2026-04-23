@@ -494,7 +494,7 @@ function createRainSystem() {
 }
 
 function updateRain(dt) {
-  if (!rainSystem || !rainSystem.visible || !player) return
+  if (!rainSystem || !rainSystem.visible) return
   
   const positions = rainSystem.geometry.attributes.position.array
   const velocities = rainSystem.userData.velocities
@@ -692,39 +692,19 @@ function createFallbackPlayer() {
 function createPlayerFromGLTF(gltf) {
   const model = gltf.scene.clone()
   
-  // First, check the original size before any transformations
-  const originalBox = new THREE.Box3().setFromObject(model)
-  const originalSize = originalBox.getSize(new THREE.Vector3())
+  const box = new THREE.Box3().setFromObject(model)
+  const size = box.getSize(new THREE.Vector3())
   
-  console.log('Original model size:', originalSize)
-  
-  if (originalSize.y === 0) {
+  if (size.y === 0) {
     console.error('Model has zero height')
     return null
   }
   
-  // Scale to target height of 1.5 units
-  const targetHeight = 1.5
-  const s = targetHeight / originalSize.y
+  const s = 1.5 / size.y
   model.scale.set(s, s, s)
   
-  // Apply a -90 degree rotation around X if the model appears to be lying on its side
-  // This is common for models exported from certain software
-  model.rotation.x = -Math.PI / 2
-  
-  // Recompute bounding box after all transformations
-  const finalBox = new THREE.Box3().setFromObject(model)
-  const finalSize = finalBox.getSize(new THREE.Vector3())
-  
-  console.log('Final model size after rotation:', finalSize)
-  
-  // Center horizontally and place bottom at y=0
-  model.position.x = - (finalBox.min.x + finalBox.max.x) / 2
-  model.position.z = - (finalBox.min.z + finalBox.max.z) / 2
-  model.position.y = -finalBox.min.y
-  
-  // Store the y-offset needed to keep player on ground
-  const groundOffset = model.position.y
+  box.setFromObject(model)
+  model.position.y = -box.min.y
 
   model.traverse(c => {
     if (c.isMesh) {
@@ -761,7 +741,7 @@ function createPlayerFromGLTF(gltf) {
     }
   }
 
-  model.userData.groundY = groundOffset
+  model.userData.groundY = -model.position.y
   return model
 }
 
@@ -771,12 +751,9 @@ function createPlayer() {
     player = createPlayerFromGLTF(preloadedModels.player)
     if (player) {
       const terrainH = getTerrainHeight(0, 0)
-      // Position player at terrain height + ground offset
-      player.position.x = 0
-      player.position.y = terrainH + player.userData.groundY
-      player.position.z = 0
+      player.position.set(0, terrainH, 0)
       scene.add(player)
-      console.log('Player created from preloaded model at', player.position)
+      console.log('Player created from preloaded model')
       return
     }
   }
@@ -1327,13 +1304,10 @@ function startLevel(levelIdx) {
   isInWater = false
 
   // Reset player position to center
-  if (player) {
-    player.position.x = 0
-    player.position.z = 0
-    player.position.y = getTerrainHeight(0, 0) + (player.userData?.groundY ?? 0)
-    player.rotation.y = 0
-  }
-  lastGroundHeight = player ? player.position.y : 0
+  player.position.set(0, 0, 0)
+  player.position.y = getTerrainHeight(0, 0) + (player.userData?.groundY ?? 0)
+  player.rotation.y = 0
+  lastGroundHeight = player.position.y
 
   createDecorations(levelIdx)
   createGems(cfg.gems, levelIdx)
@@ -1455,7 +1429,7 @@ function resolveDecorationCollisions() {
 // PLAYER UPDATE WITH PHYSICS
 // ============================================================================
 function updatePlayer(dt) {
-  if (!started || !player) return
+  if (!started) return
   
   const forward = new THREE.Vector3(-Math.sin(camAngle), 0, -Math.cos(camAngle))
   const right = new THREE.Vector3(-forward.z, 0, forward.x)
@@ -1695,7 +1669,6 @@ function animateWalk(dt, time) {
 // GAME OBJECT UPDATES
 // ============================================================================
 function updateGems(dt, time) {
-  if (!player) return
   const cfg = LEVELS[currentLevel]
   gems.forEach(gem => {
     if (gem.userData.collected) return
@@ -1745,7 +1718,6 @@ function updateGems(dt, time) {
 }
 
 function updateEnemies(dt, time) {
-  if (!player) return
   enemies.forEach(enemy => {
     // Update enemy height to follow terrain
     const terrainH = getTerrainHeight(enemy.position.x, enemy.position.z)
@@ -1818,7 +1790,6 @@ function updateEnemies(dt, time) {
 }
 
 function updatePowerUps(dt, time) {
-  if (!player) return
   powerUps.forEach(pu => {
     if (pu.userData.collected) return
     pu.rotation.y += dt * 3
@@ -1854,7 +1825,6 @@ function updateTimer(dt) {
 }
 
 function updateCamera() {
-  if (!player) return
   const cx = player.position.x + Math.sin(camAngle) * Math.cos(camPitch) * CAM_DIST
   const cy = player.position.y + 1.5 + Math.sin(camPitch) * CAM_DIST
   const cz = player.position.z + Math.cos(camAngle) * Math.cos(camPitch) * CAM_DIST
