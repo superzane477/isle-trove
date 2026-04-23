@@ -2,7 +2,6 @@
 
 A 3D island exploration and treasure hunting game built with Three.js and Vite.
 
-![Game Screenshot](./screenshot.png)
 
 ## Play the Game
 
