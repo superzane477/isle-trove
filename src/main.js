@@ -890,10 +890,23 @@ function createGems(count, levelIdx) {
       gems.forEach((old, i) => {
         if (old.userData.isGolden !== isGoldenGem) return
         const model = gltf.scene.clone()
-        model.scale.set(0.5, 0.5, 0.5)
+        
+        // Calculate bounding box to properly center the model
+        const box = new THREE.Box3().setFromObject(model)
+        const size = box.getSize(new THREE.Vector3())
+        const center = box.getCenter(new THREE.Vector3())
+        
+        // Scale to appropriate size
+        const targetSize = 0.6
+        const s = targetSize / Math.max(size.x, size.y, size.z)
+        model.scale.set(s, s, s)
+        
+        // Reposition to match old position but adjust for model center
         model.position.copy(old.position)
+        model.position.y = old.position.y - center.y * s + (size.y * s / 2)
+        
         model.userData = { ...old.userData }
-        model.userData.baseY = old.position.y
+        model.userData.baseY = model.position.y
         model.traverse(c => {
           if (c.isMesh && c.material) {
             c.material = c.material.clone()
@@ -1774,21 +1787,31 @@ function updateGems(dt, time) {
     gem.position.y = gem.userData.baseY + Math.sin(time * 3) * 0.15
 
     let collectDist = COLLECT_DIST
+    
+    // Use player's center point for magnet effect (player height ~1.5, center is ~0.75 above feet)
+    const playerCenterY = player.position.y + 0.75
+    
     if (magnetTimer > 0) {
       const dx = player.position.x - gem.position.x
+      const dy = playerCenterY - gem.position.y
       const dz = player.position.z - gem.position.z
-      const d = Math.sqrt(dx * dx + dz * dz)
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
       if (d < MAGNET_RANGE && d > 0) {
         const pull = dt * 6
         gem.position.x += (dx / d) * pull
+        gem.position.y += (dy / d) * pull * 0.5 // Less vertical pull
         gem.position.z += (dz / d) * pull
       }
       collectDist = COLLECT_DIST * 1.5
     }
 
+    // Collect based on horizontal distance (ignore height difference for reliability)
     const dx = player.position.x - gem.position.x
     const dz = player.position.z - gem.position.z
-    if (Math.sqrt(dx * dx + dz * dz) < collectDist) {
+    const horizontalDist = Math.sqrt(dx * dx + dz * dz)
+    // Also check vertical distance is reasonable (within 2 units)
+    const verticalDist = Math.abs(playerCenterY - gem.position.y)
+    if (horizontalDist < collectDist && verticalDist < 2.0) {
       gem.userData.collected = true
       gem.visible = false
       collected++
@@ -1893,9 +1916,15 @@ function updatePowerUps(dt, time) {
     pu.rotation.y += dt * 3
     pu.position.y = pu.userData.baseY + Math.sin(time * 2.5) * 0.15
 
+    // Use player's center point for collision (player height ~1.5, center is ~0.75 above feet)
+    const playerCenterY = player.position.y + 0.75
+    
     const dx = player.position.x - pu.position.x
     const dz = player.position.z - pu.position.z
-    if (Math.sqrt(dx * dx + dz * dz) < COLLECT_DIST) {
+    const horizontalDist = Math.sqrt(dx * dx + dz * dz)
+    // Also check vertical distance is reasonable (within 2 units)
+    const verticalDist = Math.abs(playerCenterY - pu.position.y)
+    if (horizontalDist < COLLECT_DIST && verticalDist < 2.0) {
       pu.userData.collected = true
       pu.visible = false
       if (pu.userData.type === 'speed') {
