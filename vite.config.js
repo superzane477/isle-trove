@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/isle-trove/',
+  base: '/',
   publicDir: 'public',
   server: {
     fs: {
