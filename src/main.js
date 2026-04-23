@@ -703,8 +703,26 @@ function createPlayerFromGLTF(gltf) {
   const s = 1.5 / size.y
   model.scale.set(s, s, s)
   
+  // Recompute box after scaling
   box.setFromObject(model)
+  
+  // Center the model horizontally and place bottom at y=0
+  model.position.x = - (box.min.x + box.max.x) / 2
+  model.position.z = - (box.min.z + box.max.z) / 2
   model.position.y = -box.min.y
+  
+  // Fix model orientation - some models are exported sideways
+  // Check if the model is wider than it is tall (indicating wrong orientation)
+  if (size.x > size.y || size.z > size.y) {
+    // Model might be lying down, rotate to stand up
+    model.rotation.x = -Math.PI / 2
+    // Recompute after rotation
+    const newBox = new THREE.Box3().setFromObject(model)
+    model.position.y = -newBox.min.y
+  }
+  
+  // Store the offset so terrain height + offset = correct position
+  const groundOffset = model.position.y
 
   model.traverse(c => {
     if (c.isMesh) {
@@ -741,7 +759,7 @@ function createPlayerFromGLTF(gltf) {
     }
   }
 
-  model.userData.groundY = -model.position.y
+  model.userData.groundY = groundOffset
   return model
 }
 
@@ -751,9 +769,12 @@ function createPlayer() {
     player = createPlayerFromGLTF(preloadedModels.player)
     if (player) {
       const terrainH = getTerrainHeight(0, 0)
-      player.position.set(0, terrainH, 0)
+      // Position player at terrain height + ground offset
+      player.position.x = 0
+      player.position.y = terrainH + player.userData.groundY
+      player.position.z = 0
       scene.add(player)
-      console.log('Player created from preloaded model')
+      console.log('Player created from preloaded model at', player.position)
       return
     }
   }
@@ -1304,10 +1325,13 @@ function startLevel(levelIdx) {
   isInWater = false
 
   // Reset player position to center
-  player.position.set(0, 0, 0)
-  player.position.y = getTerrainHeight(0, 0) + (player.userData?.groundY ?? 0)
-  player.rotation.y = 0
-  lastGroundHeight = player.position.y
+  if (player) {
+    player.position.x = 0
+    player.position.z = 0
+    player.position.y = getTerrainHeight(0, 0) + (player.userData?.groundY ?? 0)
+    player.rotation.y = 0
+  }
+  lastGroundHeight = player ? player.position.y : 0
 
   createDecorations(levelIdx)
   createGems(cfg.gems, levelIdx)
