@@ -692,36 +692,38 @@ function createFallbackPlayer() {
 function createPlayerFromGLTF(gltf) {
   const model = gltf.scene.clone()
   
-  const box = new THREE.Box3().setFromObject(model)
-  const size = box.getSize(new THREE.Vector3())
+  // First, check the original size before any transformations
+  const originalBox = new THREE.Box3().setFromObject(model)
+  const originalSize = originalBox.getSize(new THREE.Vector3())
   
-  if (size.y === 0) {
+  console.log('Original model size:', originalSize)
+  
+  if (originalSize.y === 0) {
     console.error('Model has zero height')
     return null
   }
   
-  const s = 1.5 / size.y
+  // Scale to target height of 1.5 units
+  const targetHeight = 1.5
+  const s = targetHeight / originalSize.y
   model.scale.set(s, s, s)
   
-  // Recompute box after scaling
-  box.setFromObject(model)
+  // Apply a -90 degree rotation around X if the model appears to be lying on its side
+  // This is common for models exported from certain software
+  model.rotation.x = -Math.PI / 2
   
-  // Center the model horizontally and place bottom at y=0
-  model.position.x = - (box.min.x + box.max.x) / 2
-  model.position.z = - (box.min.z + box.max.z) / 2
-  model.position.y = -box.min.y
+  // Recompute bounding box after all transformations
+  const finalBox = new THREE.Box3().setFromObject(model)
+  const finalSize = finalBox.getSize(new THREE.Vector3())
   
-  // Fix model orientation - some models are exported sideways
-  // Check if the model is wider than it is tall (indicating wrong orientation)
-  if (size.x > size.y || size.z > size.y) {
-    // Model might be lying down, rotate to stand up
-    model.rotation.x = -Math.PI / 2
-    // Recompute after rotation
-    const newBox = new THREE.Box3().setFromObject(model)
-    model.position.y = -newBox.min.y
-  }
+  console.log('Final model size after rotation:', finalSize)
   
-  // Store the offset so terrain height + offset = correct position
+  // Center horizontally and place bottom at y=0
+  model.position.x = - (finalBox.min.x + finalBox.max.x) / 2
+  model.position.z = - (finalBox.min.z + finalBox.max.z) / 2
+  model.position.y = -finalBox.min.y
+  
+  // Store the y-offset needed to keep player on ground
   const groundOffset = model.position.y
 
   model.traverse(c => {
